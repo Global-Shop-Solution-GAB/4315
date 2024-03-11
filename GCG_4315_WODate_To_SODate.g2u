@@ -1,0 +1,72 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+' this will all work order due dates and compare them to the sales order due date
+'- if they differ the work order due date will be replaced with the sales order due date
+'custom menu item: Order Entry > Transaction > Sync Work Order Date
+
+Function.Intrinsic.UI.InvokeWaitDialog("Syncing Due Dates")
+V.Local.iC.Declare(Long)
+V.Local..BulkDeclareString(sTemp, ssql)
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'create tables
+F.Data.DataTable.CreateFromSQL("Dates", "con", "Select JOB, SUFFIX,DATE_DUE as WO_DUE, SALES_ORDER+'-'+SALES_ORDER_LINE as SALES_ORDER, '' as SO_DUE, '' as Final_Date  From JOB_HEADER Where SALES_ORDER <> '0000000'")
+F.Data.Dictionary.CreateFromSQL("Dict", "con", "Select ORDER_NO+'-'+left(RTrim(RECORD_NO),3) as SALES_ORDER,DATE_ITEM_PROM as SO_DUE From V_ORDER_LINES Where RECORD_NO <> '  A ' And RECORD_NO <> '  B ' And RECORD_NO <> '  C '")
+F.Data.Dictionary.SetDefaultReturn("Dict", "")
+F.Data.DataTable.FillFromDictionary("Dates","Dict","SALES_ORDER","SO_DUE")
+Function.Data.Dictionary.Close("Dict")
+
+F.Intrinsic.Control.For(v.Local.iC, 0 ,Variable.DataTable.Dates.RowCount--, 1)
+	V.Local.sTemp.set(Variable.DataTable.Dates(V.Local.iC).SO_DUE!FieldValTrim)
+	F.Intrinsic.String.Format(V.Local.sTemp, "MMDDYY", V.Local.sTemp)
+	Function.Intrinsic.Control.If(V.Local.sTemp, <>, Variable.DataTable.Dates(V.Local.iC).WO_DUE!FieldValTrim)
+		F.Intrinsic.String.Build("UPDATE JOB_HEADER Set DATE_DUE = '{0}' Where JOB = '{1}' And SUFFIX = '{2}'",V.Local.sTemp ,Variable.DataTable.Dates(V.Local.iC).JOB!FieldValTrim,Variable.DataTable.Dates(V.Local.iC).SUFFIX!FieldValTrim, V.Local.ssql)
+		F.ODBC.Connection!con.Execute(V.Local.ssql)
+	Function.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(v.Local.iC)
+F.Data.DataTable.Close("Dates")
+Function.Intrinsic.UI.CloseWaitDialog
+Function.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4315_WODate_To_SODate.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	Function.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4315_WODate_To_SODate.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$DH1$}$1/13/2017 9:28:36 AM$}$True
+Program.Sub.Comments.End
